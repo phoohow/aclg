@@ -73,3 +73,11 @@ std::string aclg_format(const std::string& format_str, Args&&... args)
 #define ACLG_WARN_F(fmt, ...)     aclg_log(aclg_Level_warn, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
 #define ACLG_ERROR_F(fmt, ...)    aclg_log(aclg_Level_error, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
 #define ACLG_CRITICAL_F(fmt, ...) aclg_log(aclg_Level_critical, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+
+// Convenience macros with source info and {} formatting
+#define ACLG_TRACE_FS(fmt, ...)    aclg_log_with_source(aclg_Level_trace, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+#define ACLG_DEBUG_FS(fmt, ...)    aclg_log_with_source(aclg_Level_debug, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+#define ACLG_INFO_FS(fmt, ...)     aclg_log_with_source(aclg_Level_info, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+#define ACLG_WARN_FS(fmt, ...)     aclg_log_with_source(aclg_Level_warn, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+#define ACLG_ERROR_FS(fmt, ...)    aclg_log_with_source(aclg_Level_error, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
+#define ACLG_CRITICAL_FS(fmt, ...) aclg_log_with_source(aclg_Level_critical, __FILE__, __LINE__, __FUNCTION__, "%s", aclg_format(fmt, __VA_ARGS__).c_str())
