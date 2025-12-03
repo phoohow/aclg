@@ -1,73 +1,110 @@
 #include <aclg/aclg.h>
-#include <cstdlib>
-#include <cstring>
+
 #include <cstdarg>
+#include <cstdio>
 #include <iostream>
+#include <mutex>
+#include <vector>
 
-// Internal null logger implementation
-typedef struct aclg_null_logger
+namespace aclg
 {
-    aclg_logger_t base;
-} aclg_null_logger_t;
 
-static void null_logger_log(aclg_logger_t* logger, aclg_level_t level, const char* fmt, va_list args)
+// Atomic pointer to current logger
+static std::atomic<Logger*> g_logger{nullptr};
+
+// Holder for logger objects created by this module
+static std::mutex              g_holder_mutex;
+static std::unique_ptr<Logger> g_owner_holder;
+
+// Null logger instance
+static NullLogger g_null_logger;
+
+ConsoleLogger* create_console_logger()
 {
-    // Do nothing
+    return new ConsoleLogger();
 }
 
-static void null_logger_destroy(aclg_logger_t* logger)
+void destroy_console_logger(ConsoleLogger* logger)
 {
-    free(logger);
-}
-
-static aclg_logger_t* create_null_logger(void)
-{
-    aclg_null_logger_t* logger = (aclg_null_logger_t*)malloc(sizeof(aclg_null_logger_t));
-    if (!logger)
+    if (!logger) return;
+    // if this logger is currently registered, clear it first
+    Logger* cur = g_logger.load(std::memory_order_acquire);
+    if (cur == logger)
     {
-        return nullptr;
+        g_logger.store(nullptr, std::memory_order_release);
     }
-
-    memset(logger, 0, sizeof(aclg_null_logger_t));
-    logger->base.log     = null_logger_log;
-    logger->base.destroy = null_logger_destroy;
-
-    return (aclg_logger_t*)logger;
+    delete logger;
 }
 
-// Global logger pointer
-static aclg_logger_t* g_logger = nullptr;
-
-// Public API functions
-void aclg_set_logger(aclg_logger_t* logger)
+void set_logger(Logger* l)
 {
-    // Destroy the previous logger if it exists
-    if (g_logger && g_logger->destroy)
+    g_logger.store(l, std::memory_order_release);
+}
+
+Logger* get_logger()
+{
+    Logger* cur = g_logger.load(std::memory_order_acquire);
+    return cur ? cur : static_cast<Logger*>(&g_null_logger);
+}
+
+void clear_logger()
+{
+    g_logger.store(nullptr, std::memory_order_release);
+}
+
+static std::string vformat(const char* fmt, va_list ap)
+{
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int needed = std::vsnprintf(nullptr, 0, fmt, ap_copy);
+    va_end(ap_copy);
+    if (needed < 0)
     {
-        g_logger->destroy(g_logger);
+        return std::string();
     }
-
-    g_logger = logger;
+    std::vector<char> buf((size_t)needed + 1);
+    std::vsnprintf(buf.data(), buf.size(), fmt, ap);
+    return std::string(buf.data(), (size_t)needed);
 }
 
-aclg_logger_t* aclg_get_logger(void)
+void log(Level lvl, const char* fmt, ...)
 {
-    if (!g_logger)
+    Logger* cur = g_logger.load(std::memory_order_acquire);
+    if (!cur)
     {
-        // Create a null logger as default
-        g_logger = create_null_logger();
+        cur = &g_null_logger;
     }
-    return g_logger;
-}
+    // level check
+    if (lvl < cur->get_level())
+        return;
 
-void aclg_log(aclg_level_t level, const char* fmt, ...)
-{
     va_list ap;
     va_start(ap, fmt);
-    aclg_logger_t* logger = aclg_get_logger();
-    if (logger && logger->log)
-    {
-        logger->log(logger, level, fmt, ap);
-    }
+    std::string msg = vformat(fmt, ap);
     va_end(ap);
+
+    cur->log(lvl, msg);
 }
+
+void ConsoleLogger::log(Level level, const std::string& msg)
+{
+    if (level < m_level)
+        return;
+
+    const char* lvlstr = "unknown";
+    switch (level)
+    {
+        case Level::trace: lvlstr = "trace"; break;
+        case Level::debug: lvlstr = "debug"; break;
+        case Level::info: lvlstr = "info"; break;
+        case Level::warn: lvlstr = "warn"; break;
+        case Level::error: lvlstr = "error"; break;
+        case Level::critical: lvlstr = "critical"; break;
+        default: break;
+    }
+
+    std::printf("[%s] %s\n", lvlstr, msg.c_str());
+    std::fflush(stdout);
+}
+
+} // namespace aclg

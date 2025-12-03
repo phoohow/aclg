@@ -1,7 +1,7 @@
 set_languages("c++20")
 add_rules("mode.debug", "mode.release")
 
-option("test_aclg_simple", function()
+option("enable_test_aclg", function()
     set_default(false)
     set_showmenu(true)
     set_description("Enable test for aclg_simple")
@@ -21,12 +21,20 @@ target("aclg", function()
     set_targetdir("$(buildir)/lib")
 end)
 
-if has_config("test_aclg_simple") then
+if has_config("enable_test_aclg") then
     target("aclg_simple", function()
         set_kind("binary")
         add_deps("aclg")
         add_includedirs("include")
         add_files("examples/aclg_simple.cpp")
         set_targetdir("$(buildir)/examples")
+    end)
+
+    target("aclg_format", function()
+        set_kind("binary")
+        add_deps("aclg")
+        add_includedirs("include")
+        add_files("examples/aclg_format.cpp")
+        set_targetdir("$(buildir)/tests")
     end)
 end
