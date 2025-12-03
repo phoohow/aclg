@@ -1,48 +1,84 @@
 #include <aclg/aclgMgr.h>
-
 #include <iostream>
-#include <memory>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstdarg>
 
-namespace aclg
+// Internal function implementations
+static void console_logger_log(aclg_logger_t* logger, aclg_level_t level, const char* fmt, va_list args)
 {
-    void ConsoleLogger::log(Level level, const char *fmt, va_list args)
+    aclg_console_logger_t* console_logger = (aclg_console_logger_t*)logger;
+
+    if (level < console_logger->level)
     {
-        if (level < m_level)
-        {
-            return;
-        }
-
-        // Convert level to string
-        const char *levelStr = nullptr;
-        switch (level)
-        {
-        case Level::trace:
-            levelStr = "TRACE";
-            break;
-        case Level::debug:
-            levelStr = "DEBUG";
-            break;
-        case Level::info:
-            levelStr = "INFO";
-            break;
-        case Level::warn:
-            levelStr = "WARN";
-            break;
-        case Level::error:
-            levelStr = "ERROR";
-            break;
-        case Level::critical:
-            levelStr = "CRITICAL";
-            break;
-        case Level::off:
-            return;
-        }
-
-        // Print the log message
-        std::cout << "[" << levelStr << "] ";
-        vprintf(fmt, args);
-        std::cout << std::endl;
+        return;
     }
 
-} // namespace aclg
+    // Convert level to string
+    const char* levelStr = nullptr;
+    switch (level)
+    {
+        case ACLG_LEVEL_TRACE: levelStr = "TRACE"; break;
+        case ACLG_LEVEL_DEBUG: levelStr = "DEBUG"; break;
+        case ACLG_LEVEL_INFO: levelStr = "INFO"; break;
+        case ACLG_LEVEL_WARN: levelStr = "WARN"; break;
+        case ACLG_LEVEL_ERROR: levelStr = "ERROR"; break;
+        case ACLG_LEVEL_CRITICAL: levelStr = "CRITICAL"; break;
+        case ACLG_LEVEL_OFF: return;
+    }
+
+    // Print the log message
+    std::cout << "[" << levelStr << "] ";
+    vprintf(fmt, args);
+    std::cout << std::endl;
+}
+
+static void console_logger_destroy(aclg_logger_t* logger)
+{
+    if (logger)
+    {
+        free(logger);
+    }
+}
+
+// Public API functions
+aclg_logger_t* aclg_console_logger_create(void)
+{
+    aclg_console_logger_t* logger = (aclg_console_logger_t*)malloc(sizeof(aclg_console_logger_t));
+    if (!logger)
+    {
+        return nullptr;
+    }
+
+    memset(logger, 0, sizeof(aclg_console_logger_t));
+
+    // Initialize the base logger functions
+    logger->base.log     = console_logger_log;
+    logger->base.destroy = console_logger_destroy;
+
+    // Set default level
+    logger->level = ACLG_LEVEL_INFO;
+
+    return (aclg_logger_t*)logger;
+}
+
+void aclg_console_logger_set_level(aclg_logger_t* logger, aclg_level_t level)
+{
+    if (logger)
+    {
+        aclg_console_logger_t* console_logger = (aclg_console_logger_t*)logger;
+        console_logger->level                 = level;
+    }
+}
+
+aclg_level_t aclg_console_logger_get_level(aclg_logger_t* logger)
+{
+    if (logger)
+    {
+        aclg_console_logger_t* console_logger = (aclg_console_logger_t*)logger;
+        return console_logger->level;
+    }
+
+    return ACLG_LEVEL_INFO;
+}

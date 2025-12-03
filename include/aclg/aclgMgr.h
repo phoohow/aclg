@@ -1,22 +1,23 @@
 #pragma once
 
 #include <aclg/aclg.h>
-#include <memory>
 
-namespace aclg
+#ifdef __cplusplus
+extern "C"
 {
+#endif
 
     // Console logger implementation
-    class ACLG_API ConsoleLogger : public Logger
+    typedef struct aclg_console_logger
     {
-    public:
-        void log(Level level, const char *fmt, va_list args) override;
+        aclg_logger_t base;
+        aclg_level_t  level;
+    } aclg_console_logger_t;
 
-        void set_level(Level level) { m_level = level; }
-        Level get_level() const { return m_level; }
+    ACLG_API aclg_logger_t* aclg_console_logger_create(void);
+    ACLG_API void           aclg_console_logger_set_level(aclg_logger_t* logger, aclg_level_t level);
+    ACLG_API aclg_level_t   aclg_console_logger_get_level(aclg_logger_t* logger);
 
-    private:
-        Level m_level = Level::info;
-    };
-
-} // namespace aclg
+#ifdef __cplusplus
+}
+#endif
