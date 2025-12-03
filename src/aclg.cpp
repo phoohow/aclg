@@ -8,6 +8,21 @@
 #include <string>
 #include <vector>
 
+static std::string vformat(const char* fmt, va_list ap)
+{
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int needed = std::vsnprintf(nullptr, 0, fmt, ap_copy);
+    va_end(ap_copy);
+    if (needed < 0)
+    {
+        return std::string();
+    }
+    std::vector<char> buf((size_t)needed + 1);
+    std::vsnprintf(buf.data(), buf.size(), fmt, ap);
+    return std::string(buf.data(), (size_t)needed);
+}
+
 extern "C"
 {
 
@@ -24,21 +39,6 @@ extern "C"
     {
         g_cb.store(nullptr, std::memory_order_release);
         g_user.store(nullptr, std::memory_order_release);
-    }
-
-    static std::string vformat(const char* fmt, va_list ap)
-    {
-        va_list ap_copy;
-        va_copy(ap_copy, ap);
-        int needed = std::vsnprintf(nullptr, 0, fmt, ap_copy);
-        va_end(ap_copy);
-        if (needed < 0)
-        {
-            return std::string();
-        }
-        std::vector<char> buf((size_t)needed + 1);
-        std::vsnprintf(buf.data(), buf.size(), fmt, ap);
-        return std::string(buf.data(), (size_t)needed);
     }
 
     ACLG_API void aclg_log(uint32_t level, const char* fmt, ...)

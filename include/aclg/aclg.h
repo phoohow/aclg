@@ -40,7 +40,7 @@ extern "C"
     // Log with printf-style formatting. Accepts variable args like printf.
     ACLG_API void aclg_log(uint32_t level, const char* fmt, ...);
 
-// Convenience macros
+// Convenience macros (printf-style)
 #define ACLG_TRACE(...)    aclg_log(aclg_Level_trace, __VA_ARGS__)
 #define ACLG_DEBUG(...)    aclg_log(aclg_Level_debug, __VA_ARGS__)
 #define ACLG_INFO(...)     aclg_log(aclg_Level_info, __VA_ARGS__)
