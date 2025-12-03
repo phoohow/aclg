@@ -13,19 +13,24 @@ option("enable_aclg_spdlog", function()
     set_description("Enable test for aclg spdlog adapter")
 end)
 
+if has_config("enable_aclg_spdlog") then
+    add_requires("spdlog")
+end
+
 target("aclg", function()
     set_kind("shared")
-    add_includedirs("include", {public = true})
-    
+    add_includedirs("include", { public = true })
+
     add_files("src/aclg.cpp")
     if has_config("enable_aclg_spdlog") then
         add_files("src/spdlog_adapter.cpp")
+        add_packages("spdlog")
     end
-    
+
     if is_plat("windows") then
         add_defines("ACLG_EXPORT_DLL")
     end
-    
+
     add_headerfiles("include/(**.h)")
 end)
 
@@ -35,24 +40,21 @@ if has_config("enable_aclg_test") then
         add_deps("aclg")
         add_includedirs("include")
         add_files("examples/aclg_simple.cpp")
-        set_targetdir("$(buildir)/examples")
     end)
-    
+
     target("aclg_format", function()
         set_kind("binary")
         add_deps("aclg")
         add_includedirs("include")
         add_files("examples/aclg_format.cpp")
-        set_targetdir("$(buildir)/tests")
     end)
 end
 
 if has_config("enable_aclg_spdlog") then
-    target("aclg_demo", function()
+    target("aclg_spdlog", function()
         set_kind("binary")
         add_deps("aclg")
         add_includedirs("include")
-        add_files("src/spdlog_adapter.cpp", "examples/aclg_4_spdlog.cpp")
-        add_packages("spdlog")
+        add_files("examples/aclg_spdlog.cpp")
     end)
 end

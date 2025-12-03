@@ -1,15 +1,17 @@
 #pragma once
 
+#include <aclg/aclg.h>
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
     // Initialize spdlog adapter and register callback. Call from application startup.
-    void init_aclg_spdlog_adapter();
+    ACLG_API void init_aclg_spdlog_adapter(const char* name);
 
     // Unregister adapter and release resources.
-    void shutdown_aclg_spdlog_adapter();
+    ACLG_API void shutdown_aclg_spdlog_adapter(const char* name);
 
 #ifdef __cplusplus
 }
