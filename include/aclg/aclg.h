@@ -11,70 +11,41 @@
 #endif
 
 #include <cstdarg>
-#include <string>
+#include <cstdint>
 
-namespace aclg
+extern "C"
 {
 
-enum class Level
-{
-    trace,
-    debug,
-    info,
-    warn,
-    error,
-    critical,
-    off
-};
+    enum aclg_Level : uint32_t
+    {
+        aclg_Level_trace    = 0,
+        aclg_Level_debug    = 1,
+        aclg_Level_info     = 2,
+        aclg_Level_warn     = 3,
+        aclg_Level_error    = 4,
+        aclg_Level_critical = 5,
+        aclg_Level_off      = 6
+    };
 
-class ACLG_API Logger
-{
-public:
-    virtual ~Logger()                                      = default;
-    virtual void  log(Level level, const std::string& msg) = 0;
-    virtual void  set_level(Level level)                   = 0;
-    virtual Level get_level() const                        = 0;
-};
+    // Logger callback: level, null-terminated message, user_data pointer
+    typedef void (*aclg_logger_cb)(uint32_t level, const char* message, void* user_data);
 
-class ACLG_API NullLogger : public Logger
-{
-public:
-    void  log(Level, const std::string&) override {}
-    void  set_level(Level) override {}
-    Level get_level() const override { return Level::off; }
-};
+    // Register a logger callback and optional user_data.
+    // The callback will be invoked from aclg_log.
+    // This function does not take ownership of user_data.
+    ACLG_API void aclg_set_logger_callback(aclg_logger_cb cb, void* user_data);
+    // To unregister, call aclg_clear_logger_callback().
+    ACLG_API void aclg_clear_logger_callback();
 
-class ACLG_API ConsoleLogger : public Logger
-{
-    Level m_level;
-
-public:
-    ConsoleLogger() : m_level(Level::info) {}
-    void  log(Level level, const std::string& msg) override;
-    void  set_level(Level level) override { m_level = level; }
-    Level get_level() const override { return m_level; }
-};
-
-// Factory functions
-ACLG_API ConsoleLogger* create_console_logger();
-ACLG_API void           destroy_console_logger(ConsoleLogger* logger);
-
-// Global logger functions
-ACLG_API void    set_logger(Logger* l);
-ACLG_API Logger* get_logger();
-ACLG_API void    clear_logger();
-
-// Formatting log function
-ACLG_API void log(Level lvl, const char* fmt, ...);
+    // Log with printf-style formatting. Accepts variable args like printf.
+    ACLG_API void aclg_log(uint32_t level, const char* fmt, ...);
 
 // Convenience macros
-#define ACLG_TRACE(...)    ::aclg::log(::aclg::Level::trace, __VA_ARGS__)
-#define ACLG_DEBUG(...)    ::aclg::log(::aclg::Level::debug, __VA_ARGS__)
-#define ACLG_INFO(...)     ::aclg::log(::aclg::Level::info, __VA_ARGS__)
-#define ACLG_WARN(...)     ::aclg::log(::aclg::Level::warn, __VA_ARGS__)
-#define ACLG_ERROR(...)    ::aclg::log(::aclg::Level::error, __VA_ARGS__)
-#define ACLG_CRITICAL(...) ::aclg::log(::aclg::Level::critical, __VA_ARGS__)
+#define ACLG_TRACE(...)    aclg_log(aclg_Level_trace, __VA_ARGS__)
+#define ACLG_DEBUG(...)    aclg_log(aclg_Level_debug, __VA_ARGS__)
+#define ACLG_INFO(...)     aclg_log(aclg_Level_info, __VA_ARGS__)
+#define ACLG_WARN(...)     aclg_log(aclg_Level_warn, __VA_ARGS__)
+#define ACLG_ERROR(...)    aclg_log(aclg_Level_error, __VA_ARGS__)
+#define ACLG_CRITICAL(...) aclg_log(aclg_Level_critical, __VA_ARGS__)
 
-#define ACLG_STRINGIFY(str) ((str).c_str())
-
-} // namespace aclg
+} // extern "C"
