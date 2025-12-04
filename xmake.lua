@@ -9,9 +9,9 @@ end)
 
 target("aclg", function()
     set_kind("headeronly")
-    add_headerfiles("include/aclg/*.h", {public = true})
-    add_includedirs("include")
-    
+    add_headerfiles("include/aclg/*.h")
+    add_includedirs("include", { public = true })
+
     add_defines("SPDLOG_HEADER_ONLY")
 end)
 
@@ -19,14 +19,12 @@ if has_config("enable_aclg_test") then
     target("aclg_simple", function()
         set_kind("binary")
         add_deps("aclg")
-        add_includedirs("include")
         add_files("examples/aclg_simple.cpp")
     end)
-    
+
     target("aclg_callback", function()
         set_kind("binary")
         add_deps("aclg")
-        add_includedirs("include")
         add_files("examples/aclg_callback.cpp")
     end)
 end
