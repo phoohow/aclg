@@ -1,78 +1,119 @@
 #pragma once
 
-#ifdef _WIN32
-#    ifdef ACLG_EXPORT_DLL
-#        define ACLG_API __declspec(dllexport)
-#    else
-#        define ACLG_API __declspec(dllimport)
-#    endif
-#else
-#    define ACLG_API
-#endif
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/fmt/ostr.h>
 
-#include <cstdarg>
-#include <cstdint>
-
-extern "C"
+namespace aclg
 {
+enum class Level
+{
+    trace,
+    debug,
+    info,
+    warn,
+    error,
+    critical,
+    off
+};
 
-    enum aclg_Level : uint32_t
-    {
-        aclg_Level_trace    = 0,
-        aclg_Level_debug    = 1,
-        aclg_Level_info     = 2,
-        aclg_Level_warn     = 3,
-        aclg_Level_error    = 4,
-        aclg_Level_critical = 5,
-        aclg_Level_off      = 6
-    };
+struct SourceInfo
+{
+    const char* file;
+    uint32_t    line;
+    const char* function;
+};
 
-    // Source code information structure
-    struct aclg_source_info
-    {
-        const char* file;     // Source file path
-        uint32_t    line;     // Line number
-        const char* function; // Function name
-    };
+using LoggerCallback           = std::function<void(Level, const std::string&, void*)>;
+using LoggerCallbackWithSource = std::function<void(Level, const SourceInfo&, const std::string&, void*)>;
 
-    // Logger callback: level, null-terminated message, user_data pointer
-    typedef void (*aclg_logger_cb)(uint32_t level, const char* message, void* user_data);
+namespace detail
+{
+inline LoggerCallback           g_callback;
+inline LoggerCallbackWithSource g_callback_with_source;
+inline void*                    g_user_data             = nullptr;
+inline void*                    g_user_data_with_source = nullptr;
+inline std::mutex               g_callback_mutex;
+} // namespace detail
 
-    // Logger callback with source info: level, source info, null-terminated message, user_data pointer
-    typedef void (*aclg_logger_cb_with_source)(uint32_t level, const aclg_source_info* source, const char* message, void* user_data);
+inline std::shared_ptr<spdlog::logger> get_default_logger() { return spdlog::default_logger(); }
 
-    // Register a logger callback and optional user_data.
-    // The callback will be invoked from aclg_log.
-    // This function does not take ownership of user_data.
-    ACLG_API void aclg_set_logger_callback(aclg_logger_cb cb, void* user_data);
-    // To unregister, call aclg_clear_logger_callback().
-    ACLG_API void aclg_clear_logger_callback();
+inline void register_callback(LoggerCallback cb, void* user_data)
+{
+    std::lock_guard<std::mutex> lock(detail::g_callback_mutex);
+    detail::g_callback  = std::move(cb);
+    detail::g_user_data = user_data;
+}
 
-    // Register a logger callback with source info support
-    ACLG_API void aclg_set_logger_callback_with_source(aclg_logger_cb_with_source cb, void* user_data);
-    // To unregister, call aclg_clear_logger_callback_with_source().
-    ACLG_API void aclg_clear_logger_callback_with_source();
+inline void register_callback_with_source(LoggerCallbackWithSource cb, void* user_data)
+{
+    std::lock_guard<std::mutex> lock(detail::g_callback_mutex);
+    detail::g_callback_with_source  = std::move(cb);
+    detail::g_user_data_with_source = user_data;
+}
 
-    // Log with printf-style formatting. Accepts variable args like printf.
-    ACLG_API void aclg_log(uint32_t level, const char* fmt, ...);
+template <typename... Args>
+inline void trace(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->trace(fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void debug(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->debug(fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void info(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->info(fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void warn(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->warn(fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void error(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->error(fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void critical(const char* fmt, const Args&... args) { spdlog::default_logger_raw()->critical(fmt::runtime(fmt), args...); }
 
-    // Log with source info and printf-style formatting.
-    ACLG_API void aclg_log_with_source(uint32_t level, const char* file, uint32_t line, const char* function, const char* fmt, ...);
+inline void trace(const std::string& msg) { spdlog::default_logger_raw()->trace(msg); }
+inline void debug(const std::string& msg) { spdlog::default_logger_raw()->debug(msg); }
+inline void info(const std::string& msg) { spdlog::default_logger_raw()->info(msg); }
+inline void warn(const std::string& msg) { spdlog::default_logger_raw()->warn(msg); }
+inline void error(const std::string& msg) { spdlog::default_logger_raw()->error(msg); }
+inline void critical(const std::string& msg) { spdlog::default_logger_raw()->critical(msg); }
 
-// Convenience macros (printf-style)
-#define ACLG_TRACE(...)    aclg_log(aclg_Level_trace, __VA_ARGS__)
-#define ACLG_DEBUG(...)    aclg_log(aclg_Level_debug, __VA_ARGS__)
-#define ACLG_INFO(...)     aclg_log(aclg_Level_info, __VA_ARGS__)
-#define ACLG_WARN(...)     aclg_log(aclg_Level_warn, __VA_ARGS__)
-#define ACLG_ERROR(...)    aclg_log(aclg_Level_error, __VA_ARGS__)
-#define ACLG_CRITICAL(...) aclg_log(aclg_Level_critical, __VA_ARGS__)
+template <typename... Args>
+inline void trace_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::trace, fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void debug_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::debug, fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void info_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::info, fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void warn_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::warn, fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void error_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::err, fmt::runtime(fmt), args...); }
+template <typename... Args>
+inline void critical_s(const char* file, uint32_t line, const char* function, const char* fmt, const Args&... args) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::critical, fmt::runtime(fmt), args...); }
 
-// Convenience macros with source info (printf-style)
-#define ACLG_TRACE_S(...)    aclg_log_with_source(aclg_Level_trace, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define ACLG_DEBUG_S(...)    aclg_log_with_source(aclg_Level_debug, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define ACLG_INFO_S(...)     aclg_log_with_source(aclg_Level_info, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define ACLG_WARN_S(...)     aclg_log_with_source(aclg_Level_warn, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define ACLG_ERROR_S(...)    aclg_log_with_source(aclg_Level_error, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#define ACLG_CRITICAL_S(...) aclg_log_with_source(aclg_Level_critical, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
+inline void trace_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::trace, msg); }
+inline void debug_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::debug, msg); }
+inline void info_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::info, msg); }
+inline void warn_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::warn, msg); }
+inline void error_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::err, msg); }
+inline void critical_s(const char* file, uint32_t line, const char* function, const std::string& msg) { spdlog::default_logger_raw()->log(spdlog::source_loc{file, static_cast<int>(line), function}, spdlog::level::critical, msg); }
 
-} // extern "C"
+} // namespace aclg
+
+// Explicit source location macros always capture source location information
+#define ACLG_TRACE_S(...)    SPDLOG_LOGGER_TRACE(spdlog::default_logger_raw(), __VA_ARGS__)
+#define ACLG_DEBUG_S(...)    SPDLOG_LOGGER_DEBUG(spdlog::default_logger_raw(), __VA_ARGS__)
+#define ACLG_INFO_S(...)     SPDLOG_LOGGER_INFO(spdlog::default_logger_raw(), __VA_ARGS__)
+#define ACLG_WARN_S(...)     SPDLOG_LOGGER_WARN(spdlog::default_logger_raw(), __VA_ARGS__)
+#define ACLG_ERROR_S(...)    SPDLOG_LOGGER_ERROR(spdlog::default_logger_raw(), __VA_ARGS__)
+#define ACLG_CRITICAL_S(...) SPDLOG_LOGGER_CRITICAL(spdlog::default_logger_raw(), __VA_ARGS__)
+
+#ifdef _DEBUG
+#    define ACLG_TRACE(...)    ACLG_TRACE_S(__VA_ARGS__)
+#    define ACLG_DEBUG(...)    ACLG_DEBUG_S(__VA_ARGS__)
+#    define ACLG_INFO(...)     ACLG_INFO_S(__VA_ARGS__)
+#    define ACLG_WARN(...)     ACLG_WARN_S(__VA_ARGS__)
+#    define ACLG_ERROR(...)    ACLG_ERROR_S(__VA_ARGS__)
+#    define ACLG_CRITICAL(...) ACLG_CRITICAL_S(__VA_ARGS__)
+#else
+#    define ACLG_TRACE(...)    SPDLOG_TRACE(__VA_ARGS__)
+#    define ACLG_DEBUG(...)    SPDLOG_DEBUG(__VA_ARGS__)
+#    define ACLG_INFO(...)     SPDLOG_INFO(__VA_ARGS__)
+#    define ACLG_WARN(...)     SPDLOG_WARN(__VA_ARGS__)
+#    define ACLG_ERROR(...)    SPDLOG_ERROR(__VA_ARGS__)
+#    define ACLG_CRITICAL(...) SPDLOG_CRITICAL(__VA_ARGS__)
+#endif
